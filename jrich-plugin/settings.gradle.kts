@@ -1,9 +1,6 @@
 pluginManagement {
-    includeBuild("build-logic") {
+    includeBuild("../build-logic") {
         name = "build-logic"
-    }
-    includeBuild("jrich-plugin") {
-        name = "jrich-plugin"
     }
     repositories {
         google()
@@ -13,14 +10,16 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    versionCatalogs {
+        create("libs") {
+            from(files("../gradle/libs.versions.toml"))
+        }
+    }
     repositories {
         google()
         mavenCentral()
     }
 }
 
-rootProject.name = "adyen-test"
+rootProject.name = "jrich-plugin"
 
-include(":path-filter")
-include(":android-app")

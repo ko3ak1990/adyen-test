@@ -1,0 +1,23 @@
+[versions]
+kotlin = "2.0.21"
+androidGradlePlugin = "8.5.2"
+snakeyaml = "2.4"
+junitJupiter = "5.11.4"
+junit4 = "4.13.2"
+androidxCoreKtx = "1.13.1"
+androidxAppcompat = "1.7.0"
+
+[libraries]
+snakeyaml = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junitJupiter" }
+junit4 = { module = "junit:junit", version.ref = "junit4" }
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCoreKtx" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidxAppcompat" }
+android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "androidGradlePlugin" }
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
+
