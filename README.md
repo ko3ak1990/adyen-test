@@ -10,7 +10,7 @@ This repository contains a Gradle multi-module build with shared convention logi
 
 ## Prerequisites
 
-- JDK 17+
+- JDK 21+ (required by Android Gradle Plugin 9.x)
 - Android SDK installed (for `:android-app` tasks)
 
 ## Build and test
