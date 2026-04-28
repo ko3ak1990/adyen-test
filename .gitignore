@@ -3,7 +3,14 @@
 build/
 
 # Local configuration file (sdk path, etc)
+**/build/
+.idea/
+*.iml
 local.properties
+out/
+.kotlin/
+**/.kotlin/
+openspec/
 
 # Log/OS Files
 *.log
