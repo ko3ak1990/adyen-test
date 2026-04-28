@@ -13,6 +13,7 @@ class GreenShadeCyclerTest {
         assertEquals(20, cycler.next())
         assertEquals(30, cycler.next())
         assertEquals(10, cycler.next())
+        assertEquals(20, cycler.next())
     }
 
     @Test
