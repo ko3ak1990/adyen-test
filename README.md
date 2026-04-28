@@ -4,8 +4,8 @@ This repository contains a Gradle multi-module build with shared convention logi
 
 - `build-logic` (included build) - reusable Gradle conventions for JVM app, Android app, and Gradle plugin modules
 - `:path-filter` - standalone CLI that evaluates changed files against YAML filters and writes a `.env` output
-- `jrich-plugin` (included build) - Gradle plugin `com.umanets.jrich` that enriches JUnit XML with `filename` and best-effort `line`
-- `:android-app` - Android consumer app module that applies `com.umanets.jrich`
+- `jrich-plugin` (included build) - Gradle plugin `com.adyen.jrich` that enriches JUnit XML with `filename` and best-effort `line`
+- `:android-app` - Android consumer app module that applies `com.adyen.jrich`
 
 
 ## Prerequisites
@@ -60,7 +60,7 @@ documentation=true
 Plugin id:
 
 ```text
-com.umanets.jrich
+com.adyen.jrich
 ```
 
 DSL configuration:
