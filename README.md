@@ -66,12 +66,12 @@ com.adyen.jrich
 DSL configuration:
 
 ```kotlin
-jRich {
-    reportDir.set(layout.buildDirectory.dir("reports/jrich"))
+junitXmlFilename {
+    outputDir.set(layout.buildDirectory.dir("reports/junit-enriched"))
 }
 ```
 
-`jRich` writes enriched XML into `reportDir` and leaves original test XML unchanged.
+`junitXmlFilename` writes enriched XML into `outputDir` and leaves original test XML unchanged.
 
 ## IntelliJ IDEA module visibility
 
@@ -93,7 +93,7 @@ Run with an opt-in failing test:
 Inspect enriched output (`filename` and best-effort `line`):
 
 ```bash
-grep -n "filename=\|line=" android-app/build/reports/jrich-demo/testDebugUnitTest/*.xml
+grep -n "filename=\|line=" android-app/build/reports/junit-enriched-demo/testDebugUnitTest/*.xml
 ```
 
 Original XML should remain unmodified:
