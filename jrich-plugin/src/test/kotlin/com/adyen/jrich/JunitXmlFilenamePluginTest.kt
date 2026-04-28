@@ -13,7 +13,7 @@ class JunitXmlFilenamePluginTest {
         val projectDir = Files.createTempDirectory("plugin-project").toFile()
         val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
 
-        project.pluginManager.apply("com.umanets.jrich")
+        project.pluginManager.apply("com.adyen.jrich")
 
         val extension = project.extensions.getByType(JRichExtension::class.java)
         val expected = project.layout.buildDirectory.dir("reports/jrich").get().asFile
@@ -26,7 +26,7 @@ class JunitXmlFilenamePluginTest {
         val projectDir = Files.createTempDirectory("plugin-project-task").toFile()
         val project = ProjectBuilder.builder().withProjectDir(projectDir).build()
 
-        project.pluginManager.apply("com.umanets.jrich")
+        project.pluginManager.apply("com.adyen.jrich")
         project.tasks.register("sampleTest", GradleTestTask::class.java).get()
         val enrichTask = project.tasks.findByName("enrichJunitXmlReports")
 

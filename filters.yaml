@@ -1,0 +1,10 @@
+filters:
+  kotlin_sources:
+    - "**/*.kt"
+    - "!**/test/**"
+  tests:
+    - "**/test/**/*.kt"
+  documentation:
+    - "README.md"
+    - "docs/**"
+
