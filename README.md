@@ -1,45 +1,115 @@
-# CI/CD Path Filter + jRich JUnit XML Plugin
+# CI/CD Path Filter + jRich
 
-This repository contains a Gradle multi-module build with shared convention logic:
+This repository contains two complementary CI/CD tools built as a Gradle multi-module project. Together they let you run only the relevant jobs on a PR and get navigable test failure reports back out.
 
-- `build-logic` (included build) - reusable Gradle conventions for JVM app, Android app, and Gradle plugin modules
-- `:path-filter` - standalone CLI that evaluates changed files against YAML filters and writes a `.env` output
-- `jrich-plugin` (included build) - Gradle plugin `com.adyen.jrich` that enriches JUnit XML with `filename` and best-effort `line`
-- `:android-app` - Android consumer app module that applies `com.adyen.jrich`
+## How the pieces fit together
 
+```
+PR opened / commit pushed
+        │
+        ▼
+  git diff --name-only          ← list of changed files
+        │
+        ▼
+  path-filter CLI
+  ┌──────────────────────────────────────┐
+  │  input:  filters.yaml                │
+  │          changed file paths          │
+  │  output: result.env                  │
+  │          kotlin_sources=true         │
+  │          tests=true                  │
+  │          documentation=false         │
+  └──────────────────────────────────────┘
+        │
+        ▼
+  CI pipeline reads result.env
+  ┌──────────────────────────────────────────────────────┐
+  │  if kotlin_sources=true  →  run compile + lint job   │
+  │  if tests=true           →  run test job             │
+  │  if documentation=false  →  skip doc pipeline        │
+  └──────────────────────────────────────────────────────┘
+        │
+        ▼  (test job runs)
+  Gradle executes :test
+  ┌──────────────────────────────────────┐
+  │  produces test-results/*.xml         │
+  │  (no filename or line attributes)    │
+  └──────────────────────────────────────┘
+        │
+        ▼  (jRich hooks in automatically as a finalizer)
+  jRich plugin enriches XML
+  ┌──────────────────────────────────────┐
+  │  reads    test-results/*.xml         │
+  │  resolves classname → source file    │
+  │  extracts line from stack trace      │
+  │  writes   reports/jrich/*.xml        │
+  └──────────────────────────────────────┘
+        │
+        ▼
+  CI test reporter / IDE
+  (test failures now link directly to source files)
+```
+
+---
+
+## Repository layout
+
+| Module | Type | Description |
+|---|---|---|
+| `build-logic` | included build | Shared Gradle convention plugins for JVM apps, Android apps, and Gradle plugin modules |
+| `:path-filter` | JVM CLI application | Evaluates changed file paths against YAML-defined glob filters, writes a `.env` result |
+| `jrich-plugin` | included build / Gradle plugin | `com.adyen.jrich` — enriches JUnit XML test reports with `filename` and `line` attributes |
+| `:android-app` | Android application | Demo consumer that applies `com.adyen.jrich` |
+
+---
 
 ## Prerequisites
 
 - JDK 21+ (required by Android Gradle Plugin 9.x)
-- Android SDK installed (for `:android-app` tasks)
+- Android SDK (for `:android-app` tasks only)
 
-## Build and test
+---
 
-```bash
-./gradlew build
-./gradlew test
-./gradlew :android-app:testDebugUnitTest
-./gradlew -p jrich-plugin test
+## path-filter
+
+### What it does
+
+`path-filter` reads a `filters.yaml` file and a list of changed file paths, evaluates each named filter against the changed files using glob patterns, and writes a `key=true/false` environment file that CI pipelines can consume to skip irrelevant jobs.
+
+### How it works
+
+```
+YamlConfigParser
+  └─ parses filters.yaml into FiltersFile
+       (map of filter name → pattern list)
+
+FilterEvaluator
+  └─ for each filter:
+       split patterns into includes / excludes (prefix "!")
+       changedFiles.any { file →
+         includes.any  { pattern → GlobMatcher.matches(pattern, file) }
+         excludes.none { pattern → GlobMatcher.matches(pattern, file) }
+       }
+
+GlobMatcher
+  └─ wraps java.nio.file.PathMatcher (glob)
+     PathMatcher objects are compiled once and cached per pattern
+     For patterns containing "/**/" a collapsed fallback is tried
+     to handle the zero-segment case java.nio treats strictly
+
+EnvWriter
+  └─ writes name=true / name=false lines to the output file
 ```
 
-## Version management
+### Filter evaluation logic
 
-All plugin and dependency versions are centralized in `gradle/libs.versions.toml`.
-Included builds (`build-logic` and `jrich-plugin`) import this catalog in their own `settings.gradle.kts`.
-
-## Run the CLI
-
-```bash
-./gradlew :path-filter:run --args='--config filters.yaml --output build/result.env app/src/Main.kt docs/README.md'
-```
-
-Example `filters.yaml`:
+A filter is **matched** (`true`) when at least one changed file satisfies **all** inclusion patterns **and** is not excluded by any exclusion pattern (prefixed `!`).
 
 ```yaml
 filters:
   kotlin_sources:
-    - "**/*.kt"
-    - "!**/test/**"
+    - "**/*.kt"        # include all Kotlin files
+    - "!**/test/**"    # except those under a test directory
   tests:
     - "**/test/**/*.kt"
   documentation:
@@ -47,7 +117,13 @@ filters:
     - "docs/**"
 ```
 
-The generated `.env` file format is:
+### Build and run
+
+```bash
+./gradlew :path-filter:run --args='--config filters.yaml --output build/result.env file1.kt src/test/Foo.kt docs/guide.md'
+```
+
+Output `build/result.env`:
 
 ```env
 kotlin_sources=true
@@ -55,49 +131,140 @@ tests=true
 documentation=true
 ```
 
-## Apply jRich plugin in a module
+### CLI reference
 
-Plugin id:
-
-```text
-com.adyen.jrich
+```
+path-filter --config <filters.yaml> --output <result.env> [changed-file ...]
 ```
 
-DSL configuration:
+| Argument | Required | Description |
+|---|---|---|
+| `--config` | yes | Path to the YAML filter definition file |
+| `--output` | yes | Path where the `.env` result file is written |
+| `[files...]` | | Changed file paths (typically from `git diff --name-only`) |
+
+---
+
+## jRich plugin
+
+### What it does
+
+`jRich` is a Gradle plugin (`com.adyen.jrich`) that automatically post-processes JUnit XML test results after every `Test` task. It adds two attributes to each `<testcase>` element:
+
+- **`filename`** — relative path from the project root to the source file (e.g. `app/src/main/kotlin/com/example/Foo.kt`)
+- **`line`** — best-effort line number extracted from the first matching frame in the failure stack trace
+
+Original `test-results/` files are never modified. Enriched XML is written to a separate configurable output directory.
+
+### How it works
+
+```
+JRichPlugin.apply(project)
+  ├─ registers extension "jRich" (JRichExtension)
+  │    reportDir  →  default: build/reports/jrich
+  │
+  └─ registers task "enrichJunitXmlReports" (EnrichJunitXmlReportTask)
+       finalizes all Test tasks in the project
+       │
+       ▼
+  EnrichJunitXmlReportTask.enrich()
+       │
+       ▼
+  JunitXmlTaskProcessor.processTask(projectDir, reportDir, outputRoot)
+    ├─ SourceFileResolver.discoverSourceRoots(projectDir)
+    │    walks src/ looking for kotlin/ and java/ directories
+    │
+    ├─ for each *.xml in reportDir:
+    │
+    └─ JunitXmlEnricher.enrichFile(input, output)
+         ├─ parses XML with DocumentBuilderFactory
+         ├─ for each <testcase classname="…">:
+         │    ├─ SourceFileResolver.resolve(classname)
+         │    │    strips inner class suffix, converts dots → path segments
+         │    │    tries .kt and .java extensions across all source roots
+         │    │    returns project-relative path or null
+         │    │
+         │    └─ StackTraceLineExtractor.extract(stackTrace, filename)
+         │         scans failure text for a frame matching the filename
+         │         extracts the line number from (FileName.kt:42) notation
+         │
+         └─ writes enriched XML to output path (preserving relative structure)
+```
+
+### Apply the plugin
+
+In `settings.gradle.kts` of the consuming project, make the plugin available:
 
 ```kotlin
-junitXmlFilename {
-    outputDir.set(layout.buildDirectory.dir("reports/junit-enriched"))
+pluginManagement {
+    includeBuild("jrich-plugin")
 }
 ```
 
-`junitXmlFilename` writes enriched XML into `outputDir` and leaves original test XML unchanged.
+In the module's `build.gradle.kts`:
 
-## IntelliJ IDEA module visibility
+```kotlin
+plugins {
+    id("com.adyen.jrich")
+}
+```
 
-This project uses a composite build:
+### DSL configuration
 
-- `:path-filter` and `:android-app` are regular subprojects
-- `build-logic` and `jrich-plugin` are included builds from `settings.gradle.kts`
+```kotlin
+jRich {
+    reportDir.set(layout.buildDirectory.dir("reports/my-enriched-xml"))
+}
+```
 
-If IntelliJ only shows the root project, run **Gradle > Reload All Gradle Projects** and reopen from repository root.
+| Property | Default | Description |
+|---|---|---|
+| `reportDir` | `build/reports/jrich` | Directory where enriched XML files are written |
 
-## Verify enrichment on a failing Android test
+The task name is `enrichJunitXmlReports` and it belongs to the `verification` group. It runs automatically after every `Test` task in the project — no manual wiring needed.
 
-Run with an opt-in failing test:
+### Verify enrichment
+
+Run with a forced failure to see the enriched output in action:
 
 ```bash
 ./gradlew :android-app:testDebugUnitTest -PdemoFailTest=true --continue
 ```
 
-Inspect enriched output (`filename` and best-effort `line`):
+Inspect the enriched XML (`filename` and `line` attributes should be present):
 
 ```bash
-grep -n "filename=\|line=" android-app/build/reports/junit-enriched-demo/testDebugUnitTest/*.xml
+grep -n 'filename=\|line=' android-app/build/reports/jrich-demo/testDebugUnitTest/*.xml
 ```
 
-Original XML should remain unmodified:
+Confirm the original XML is untouched:
 
 ```bash
-grep -n "filename=\|line=" android-app/build/test-results/testDebugUnitTest/*.xml
+grep -n 'filename=\|line=' android-app/build/test-results/testDebugUnitTest/*.xml
 ```
+
+---
+
+## Build and test
+
+```bash
+# build and test everything
+./gradlew build
+
+# test path-filter only
+./gradlew :path-filter:test
+
+# test jRich plugin only
+./gradlew -p jrich-plugin test
+
+# run Android unit tests
+./gradlew :android-app:testDebugUnitTest
+```
+
+## Version management
+
+All dependency and plugin versions are centralised in `gradle/libs.versions.toml`. Both included builds (`build-logic` and `jrich-plugin`) import this catalog via their own `settings.gradle.kts`.
+
+## IntelliJ IDEA
+
+This project uses a composite build. If IntelliJ only shows the root project after cloning, run **Gradle → Reload All Gradle Projects** and reopen from the repository root.
