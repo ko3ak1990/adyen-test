@@ -7,7 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
-class JunitXmlFilenamePluginTest {
+class JRichPluginTest {
     @Test
     fun `registers extension with default output directory`() {
         val projectDir = Files.createTempDirectory("plugin-project").toFile()
