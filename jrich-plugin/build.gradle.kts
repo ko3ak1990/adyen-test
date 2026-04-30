@@ -7,7 +7,7 @@ gradlePlugin {
     plugins {
         create("jRich") {
             id = "com.adyen.jrich"
-            implementationClass = "com.adyen.jrich.JunitXmlFilenamePlugin"
+            implementationClass = "com.adyen.jrich.JRichPlugin"
             displayName = "jRich"
             description = "Adds filename/line metadata to JUnit XML test reports"
         }

@@ -12,9 +12,9 @@ jobs:
     name: Detect changed paths
     runs-on: ubuntu-latest
     outputs:
-      path_filter: ${{ steps.filter.outputs.path_filter }}
-      jrich_plugin: ${{ steps.filter.outputs.jrich_plugin }}
-      android:      ${{ steps.filter.outputs.android }}
+      kotlin_sources: ${{ steps.filter.outputs.kotlin_sources }}
+      tests:          ${{ steps.filter.outputs.tests }}
+      documentation:  ${{ steps.filter.outputs.documentation }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -59,7 +59,7 @@ jobs:
   test-path-filter:
     name: Test path-filter CLI
     needs: detect-changes
-    if: needs.detect-changes.outputs.path_filter == 'true'
+    if: needs.detect-changes.outputs.kotlin_sources == 'true' || needs.detect-changes.outputs.tests == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -83,7 +83,7 @@ jobs:
   test-jrich-plugin:
     name: Test jRich plugin
     needs: detect-changes
-    if: needs.detect-changes.outputs.jrich_plugin == 'true'
+    if: needs.detect-changes.outputs.kotlin_sources == 'true' || needs.detect-changes.outputs.tests == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -109,7 +109,7 @@ jobs:
   test-android:
     name: Test Android app
     needs: detect-changes
-    if: needs.detect-changes.outputs.android == 'true'
+    if: needs.detect-changes.outputs.kotlin_sources == 'true' || needs.detect-changes.outputs.tests == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
